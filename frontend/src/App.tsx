@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useStravaAuth } from './hooks/useStravaAuth';
 import { StravaAuth } from './components/StravaAuth';
 import { JourneySetup } from './components/JourneySetup';
 import { GlobeMap } from './components/GlobeMap';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { RouteSidebar } from './components/RouteSidebar';
+import { LoadingScreen } from './components/LoadingScreen';
 import { Button } from './components/ui/button';
 import { stravaApi } from './lib/strava';
 import { ProgressCalculator } from './lib/progressCalculator';
@@ -13,7 +14,7 @@ import type { Route, City, JourneyProgress, Activity } from './types';
 const MIN_ROUTE_DISTANCE_KM = 300;
 
 function App() {
-  const { user, loading: authLoading, logout } = useStravaAuth();
+  const { user, loading: authLoading, logout, isAuthenticated } = useStravaAuth();
   const [syncing, setSyncing] = useState(false);
   const [startCity, setStartCity] = useState<City | null>(null);
   const [routes, setRoutes] = useState<Route[]>([]);
@@ -21,6 +22,7 @@ function App() {
   const [selectedRouteProgress, setSelectedRouteProgress] = useState<JourneyProgress | null>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [journeySetupResetKey, setJourneySetupResetKey] = useState(0);
+  const [globeLoaded, setGlobeLoaded] = useState(false);
 
   useEffect(() => {
     // Load activities when user is available
@@ -28,6 +30,16 @@ function App() {
       loadActivities();
     }
   }, [user?.userId]);
+
+  // Reset globe loaded state only when auth transitions from loading to not loading
+  const prevAuthLoadingRef = useRef(authLoading);
+  useEffect(() => {
+    // Only reset when transitioning from loading to not loading
+    if (prevAuthLoadingRef.current && !authLoading) {
+      setGlobeLoaded(false);
+    }
+    prevAuthLoadingRef.current = authLoading;
+  }, [authLoading]);
 
   const loadActivities = async () => {
     if (!user?.userId) return;
@@ -128,20 +140,68 @@ function App() {
   };
 
 
+  // Show loading screen until both auth and globe are ready
+  const showLoadingScreen = authLoading || !globeLoaded;
+
+  // Show loading screen during auth
   if (authLoading) {
+    return <LoadingScreen />;
+  }
+
+  if (!user) {
+    // Calculate translate Y to position globe so its top edge is below the "Connect with Strava" button
+    // Using 101.5% of viewport height to position globe slightly lower than original
+    const globeTranslateY = typeof window !== 'undefined' ? window.innerHeight * 1.015 : 0;
+    
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-gray-400">Loading...</div>
+      <div className="min-h-screen flex flex-col relative" style={{ backgroundColor: '#3756FB', color: 'white' }}>
+        {/* Globe in background - non-interactive */}
+        <div className="absolute inset-0">
+          <ErrorBoundary
+            fallback={
+              <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: '#3756FB' }}>
+                <div className="text-white text-center p-4">
+                  <div className="text-lg font-semibold mb-2">Map Loading...</div>
+                  <div className="text-sm">The map is initializing. If this persists, please refresh the page.</div>
+                </div>
+              </div>
+            }
+          >
+            <GlobeMap
+              routes={[]}
+              startCity={null}
+              selectedRouteIndex={null}
+              onRouteClick={() => {}}
+              isInteractive={false}
+              initialRotation={[-90, 0]}
+              initialTranslateY={globeTranslateY}
+              onLoadComplete={() => setGlobeLoaded(true)}
+              isAuthenticated={false}
+            />
+          </ErrorBoundary>
+        </div>
+        {/* Loading screen overlay - shown until globe is ready */}
+        {showLoadingScreen && (
+          <div className="absolute inset-0 z-20">
+            <LoadingScreen />
+          </div>
+        )}
+        {/* StravaAuth overlay */}
+        <div className="absolute inset-0 z-10">
+          <StravaAuth />
+        </div>
       </div>
     );
   }
 
-  if (!user) {
-    return <StravaAuth />;
-  }
-
   return (
     <div className="min-h-screen flex flex-col relative" style={{ backgroundColor: '#3756FB', color: 'white' }}>
+      {/* Loading screen overlay - shown until globe is ready */}
+      {showLoadingScreen && (
+        <div className="absolute inset-0 z-30">
+          <LoadingScreen />
+        </div>
+      )}
       {/* Floating buttons in top-right */}
       <div className="absolute top-7 right-7 z-20 flex gap-5 items-center">
         <Button
@@ -183,6 +243,8 @@ function App() {
               startCity={startCity}
               selectedRouteIndex={selectedRouteIndex}
               onRouteClick={handleRouteClick}
+              onLoadComplete={() => setGlobeLoaded(true)}
+              isAuthenticated={isAuthenticated}
             />
           </ErrorBoundary>
         </div>

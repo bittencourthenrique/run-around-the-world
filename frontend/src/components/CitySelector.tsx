@@ -198,7 +198,7 @@ export function CitySelector({ onSelect, onClear, label, placeholder = 'Search f
                 onMouseDown={(e) => {
                   e.preventDefault(); // Prevent input blur
                 }}
-                className={`w-full text-left px-2 py-2 text-sm text-white transition-colors cursor-pointer ${
+                className={`w-full text-left px-2 py-2 text-sm text-white transition-colors cursor-pointer hover:bg-[#3852DC] ${
                   index < results.length - 1 ? 'border-b border-[#7187ff]' : ''
                 }`}
                 type="button"
@@ -212,9 +212,6 @@ export function CitySelector({ onSelect, onClear, label, placeholder = 'Search f
               </button>
             ))}
           </div>
-        )}
-        {loading && (
-          <div className="absolute right-12 top-1/2 transform -translate-y-1/2 text-white/70 text-sm pointer-events-none">Loading...</div>
         )}
         {error && !loading && results.length === 0 && query.length >= 2 && (
           <div className="absolute left-0 right-0 mt-1 p-2 bg-red-50 border border-red-200 rounded text-xs text-red-800 z-40">

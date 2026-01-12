@@ -119,3 +119,18 @@ body {
 .animate-progress {
   animation: progress 2s ease-in-out infinite;
 }
+
+@keyframes loadingProgress {
+  0% {
+    width: 0%;
+    left: 0%;
+  }
+  50% {
+    width: 60%;
+    left: 0%;
+  }
+  100% {
+    width: 100%;
+    left: 0%;
+  }
+}
